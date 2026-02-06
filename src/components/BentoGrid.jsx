@@ -3,8 +3,17 @@ import GridLayout from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 
-const { WidthProvider, Responsive } = GridLayout;
-const ResponsiveGridLayout = WidthProvider(Responsive);
+console.log("BentoGrid.jsx loading...");
+console.log("GridLayout export:", GridLayout);
+
+const WidthProvider = GridLayout?.WidthProvider || GridLayout?.default?.WidthProvider;
+const Responsive = GridLayout?.Responsive || GridLayout?.default?.Responsive;
+
+if (!WidthProvider || !Responsive) {
+    console.error("React Grid Layout imports failed!", { GridLayout });
+}
+
+const ResponsiveGridLayout = WidthProvider ? WidthProvider(Responsive) : null;
 
 export default function BentoGrid({
     layout = [],

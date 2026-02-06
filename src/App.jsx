@@ -3,7 +3,10 @@ import { AuthProvider } from './features/auth/AuthContext';
 import LoginPage from './features/auth/LoginPage';
 import ProfilePage from './features/profile/ProfilePage';
 
+console.log("App.jsx loaded");
+
 function App() {
+  console.log("App component rendering");
   return (
     <AuthProvider>
       <Router basename={import.meta.env.BASE_URL}>

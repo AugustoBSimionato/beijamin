@@ -8,6 +8,8 @@ import { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 
+console.log("ProfilePage.jsx loaded");
+
 // Temporary dummy data
 const defaultLayout = [
     { i: 'profile', x: 0, y: 0, w: 2, h: 2 },

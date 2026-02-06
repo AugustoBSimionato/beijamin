@@ -3,6 +3,8 @@ import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from
 import { auth, db } from '../../lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
+console.log("AuthContext.jsx loaded");
+
 const AuthContext = createContext();
 
 export function useAuth() {
