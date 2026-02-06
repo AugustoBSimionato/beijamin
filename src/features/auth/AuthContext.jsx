@@ -57,9 +57,17 @@ export function AuthProvider({ children }) {
         loading
     };
 
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-[#F7F7F5]">
+                <div className="text-xl font-bold animate-pulse">Loading Bento...</div>
+            </div>
+        );
+    }
+
     return (
         <AuthContext.Provider value={value}>
-            {!loading && children}
+            {children}
         </AuthContext.Provider>
     );
 }
