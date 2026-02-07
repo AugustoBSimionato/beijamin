@@ -16,13 +16,37 @@ const firebaseConfig = {
 
 // Initialize Firebase
 console.log("Initializing Firebase...");
-const app = initializeApp(firebaseConfig);
-console.log("Firebase App Initialized");
+let app;
+try {
+  // Debug config presence
+  console.log("Firebase Config Check:", {
+    hasApiKey: !!firebaseConfig.apiKey,
+    hasAuthDomain: !!firebaseConfig.authDomain,
+    hasProjectId: !!firebaseConfig.projectId,
+  });
+
+  app = initializeApp(firebaseConfig);
+  console.log("Firebase App Initialized");
+} catch (e) {
+  console.error("Error initializing Firebase App:", e);
+}
 
 // Initialize services
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
-console.log("Firebase Services Exported");
+export let auth;
+export let db;
+export let storage;
+
+try {
+  if (app) {
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
+    console.log("Firebase Services Exported");
+  } else {
+    console.error("Firebase App not initialized, skipping services");
+  }
+} catch (e) {
+  console.error("Error initializing Firebase Services:", e);
+}
 
 export default app;

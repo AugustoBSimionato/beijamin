@@ -16,6 +16,11 @@ export function AuthProvider({ children }) {
     const [loading, setLoading] = useState(true);
 
     async function loginWithGoogle() {
+        if (!auth) {
+            console.error("Auth not initialized");
+            alert("Authentication service is not available. Please check configuration.");
+            return;
+        }
         const provider = new GoogleAuthProvider();
         try {
             const result = await signInWithPopup(auth, provider);
@@ -40,10 +45,16 @@ export function AuthProvider({ children }) {
     }
 
     function logout() {
+        if (!auth) return Promise.resolve();
         return signOut(auth);
     }
 
     useEffect(() => {
+        if (!auth) {
+            console.error("Auth instance missing in AuthContext");
+            setLoading(false);
+            return;
+        }
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             setUser(currentUser);
             setLoading(false);
@@ -56,7 +67,8 @@ export function AuthProvider({ children }) {
         user,
         loginWithGoogle,
         logout,
-        loading
+        loading,
+        authError: !auth // Expose error state
     };
 
     if (loading) {
