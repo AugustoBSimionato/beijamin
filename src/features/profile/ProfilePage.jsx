@@ -9,7 +9,7 @@ import ConfirmationModal from '../../components/ConfirmationModal'; // Import co
 import { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, setDoc, query, where, getDocs, collection } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { Pencil, Plus, Save, LogOut, X, Trash2, Edit2 } from 'lucide-react';
+import { Pencil, Plus, Save, X, Trash2, Edit2 } from 'lucide-react';
 import React from 'react';
 
 // Default layouts for new users
@@ -71,6 +71,31 @@ export default function ProfilePage() {
     const [editingCardId, setEditingCardId] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [deleteConfirmationId, setDeleteConfirmationId] = useState(null); // ID of card to delete
+
+    // State for undo/redo
+    const snapshot = useRef(null);
+
+    // Enter Edit Mode - Snapshot current state
+    const enterEditMode = () => {
+        snapshot.current = {
+            layouts: JSON.parse(JSON.stringify(layouts)),
+            items: JSON.parse(JSON.stringify(items)),
+            profileData: { ...profileData }
+        };
+        setIsEditMode(true);
+    };
+
+    // Cancel Changes - Revert to snapshot
+    const cancelChanges = () => {
+        if (snapshot.current) {
+            setLayouts(snapshot.current.layouts);
+            setItems(snapshot.current.items);
+            setProfileData(snapshot.current.profileData);
+        }
+        setHasUnsavedChanges(false);
+        setIsEditMode(false);
+        snapshot.current = null;
+    };
 
     // Bio editing
     const handleBioChange = (e) => {
@@ -215,6 +240,7 @@ export default function ProfilePage() {
 
             setHasUnsavedChanges(false);
             setIsEditMode(false);
+            snapshot.current = null; // Clear snapshot
         } catch (e) {
             console.error("Error saving profile", e);
         } finally {
@@ -396,12 +422,12 @@ export default function ProfilePage() {
     const renderCard = (key) => {
         if (key === 'profile') {
             return (
-                <div key="profile" className="h-full">
+                <div key="profile" className={`h-full ${isEditMode ? "cursor-grab active:cursor-grabbing" : ""}`}>
                     <div className="h-full flex flex-col justify-center px-4 md:px-0">
                         <div className="w-[180px] h-[180px] rounded-full overflow-hidden mb-6 border border-gray-100 shadow-sm relative group flex-none self-start">
                             {profileData?.photoURL ? (
                                 <img
-                                    src={profileData.photoURL}
+                                    src={profileData.photoURL?.replace('s96-c', 's400-c')}
                                     alt="Avatar"
                                     className="w-full h-full object-cover"
                                     referrerPolicy="no-referrer"
@@ -436,7 +462,7 @@ export default function ProfilePage() {
         // Fallback for missing items (legacy keys or sync issues)
         if (!item) {
             return (
-                <div key={key} className="h-full relative group/card">
+                <div key={key} className={`h-full relative group/card ${isEditMode ? "cursor-grab active:cursor-grabbing" : ""}`}>
                     {isEditMode && (
                         <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
                             <button
@@ -458,9 +484,9 @@ export default function ProfilePage() {
         const isSocial = item.type === 'social' || !item.image;
 
         return (
-            <div key={key} className="h-full relative group/card">
+            <div key={key} className={`h-full relative group/card ${isEditMode ? "cursor-grab active:cursor-grabbing" : ""}`}>
                 {isEditMode && (
-                    <div className="absolute inset-0 z-50 bg-black/5 opacity-0 group-hover/card:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none">
+                    <div className="absolute inset-0 z-50 bg-black/5 opacity-0 group-hover/card:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none rounded-[32px]">
                         <button
                             onClick={(e) => { e.stopPropagation(); handleEditCard(key); }}
                             className="no-drag pointer-events-auto p-3 bg-white text-black rounded-full shadow-lg hover:scale-110 transition-transform"
@@ -540,21 +566,6 @@ export default function ProfilePage() {
 
                                 <div className="w-px h-8 bg-gray-200 mx-2"></div>
 
-                                {/* Link Button (Example) */}
-                                <button className="p-3 text-gray-400 hover:text-black hover:bg-gray-100 rounded-xl transition-all">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-                                </button>
-                                {/* Image Button (Example) */}
-                                <button className="p-3 text-gray-400 hover:text-black hover:bg-gray-100 rounded-xl transition-all">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                                </button>
-                                {/* Text Button (Example) */}
-                                <button className="p-3 text-gray-400 hover:text-black hover:bg-gray-100 rounded-xl transition-all">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14 2z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg>
-                                </button>
-
-                                <div className="w-px h-8 bg-gray-200 mx-2"></div>
-
                                 {/* Save Button */}
                                 <button
                                     onClick={saveProfile}
@@ -565,19 +576,19 @@ export default function ProfilePage() {
                                     <Save className="w-5 h-5" />
                                 </button>
 
-                                {/* Logout Button */}
+                                {/* Exit/Undo Button */}
                                 <button
-                                    onClick={() => logout()}
-                                    className="p-3 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                                    title="Logout"
+                                    onClick={cancelChanges}
+                                    className="p-3 text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                    title="Cancel & Exit"
                                 >
-                                    <LogOut className="w-5 h-5" />
+                                    <X className="w-5 h-5" />
                                 </button>
                             </div>
                         ) : (
                             /* Edit Button (when not in edit mode) */
                             <button
-                                onClick={() => setIsEditMode(true)}
+                                onClick={enterEditMode}
                                 className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-black hover:bg-gray-800 text-white px-6 py-3 rounded-full font-bold text-sm shadow-2xl shadow-black/20 z-50 flex items-center gap-2 transition-all hover:scale-105 animate-in fade-in slide-in-from-bottom-5 duration-500"
                             >
                                 <Pencil className="w-4 h-4" />

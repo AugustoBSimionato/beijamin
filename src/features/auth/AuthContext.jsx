@@ -27,7 +27,7 @@ export function AuthProvider({ children }) {
                 await setDoc(userRef, {
                     username: result.user.email.split('@')[0], // Temporary username
                     displayName: result.user.displayName,
-                    photoURL: result.user.photoURL,
+                    photoURL: result.user.photoURL ? result.user.photoURL.replace('s96-c', 's400-c') : null,
                     email: result.user.email,
                     createdAt: new Date(),
                     layout: [] // Empty layout initially

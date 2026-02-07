@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Twitter, Instagram, Github, Youtube, Linkedin, Globe, MessageCircle, Link as LinkIcon } from 'lucide-react';
 import { cn } from '../BentoCard';
 
@@ -13,6 +14,8 @@ const platforms = {
 };
 
 export default function SocialCard({ platform, username, url, className, title, subtitle, icon, ...props }) {
+    const [imgError, setImgError] = useState(false);
+
     // Determine configuration
     let config = platforms[platform] || platforms.link;
 
@@ -20,6 +23,31 @@ export default function SocialCard({ platform, username, url, className, title, 
     // If 'icon' prop is passed, we might need to handle it, but for now relying on platform config
 
     const Icon = config.icon;
+
+    // Safe URL parsing for favicon and subtitle
+    let hostname = '';
+    let faviconUrl = null;
+    try {
+        if (url) {
+            let urlToParse = url;
+            // Add protocol if missing
+            if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('mailto:') && !url.startsWith('#')) {
+                urlToParse = `https://${url}`;
+            }
+
+            const urlObj = new URL(urlToParse);
+            hostname = urlObj.hostname.replace('www.', '');
+
+            // Only generate favicon for valid http/https protocols and non-empty hostname
+            if (hostname && (urlObj.protocol === 'http:' || urlObj.protocol === 'https:')) {
+                faviconUrl = `https://unavatar.io/${hostname}?fallback=false`;
+            }
+        }
+    } catch (e) {
+        // Invalid URL, fallback to default behavior
+    }
+
+    const showFavicon = (platform === 'link' || platform === 'website') && faviconUrl && !imgError;
 
     return (
         <a href={url} target="_blank" rel="noopener noreferrer" className="block h-full w-full group">
@@ -38,12 +66,22 @@ export default function SocialCard({ platform, username, url, className, title, 
                     <div className="mb-4">
                         <div className={cn(
                             "w-12 h-12 rounded-2xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110",
-                            config.bg
+                            config.bg,
+                            "overflow-hidden" // Ensure image doesn't bleed
                         )}>
-                            <Icon className={cn(
-                                "w-6 h-6",
-                                config.color
-                            )} />
+                            {showFavicon ? (
+                                <img
+                                    src={faviconUrl}
+                                    alt={config.label}
+                                    className="w-8 h-8 object-contain"
+                                    onError={() => setImgError(true)}
+                                />
+                            ) : (
+                                <Icon className={cn(
+                                    "w-6 h-6",
+                                    config.color
+                                )} />
+                            )}
                         </div>
                     </div>
 
@@ -51,7 +89,7 @@ export default function SocialCard({ platform, username, url, className, title, 
                     <div>
                         <h3 className="font-bold text-gray-900 text-lg leading-tight mb-1">{title || config.label}</h3>
                         <p className="text-sm text-gray-500 font-medium">
-                            {subtitle || (username ? `@${username}` : url ? new URL(url).hostname.replace('www.', '') : 'Visit')}
+                            {subtitle || (username ? `@${username}` : hostname || 'Visit')}
                         </p>
                     </div>
                 </div>

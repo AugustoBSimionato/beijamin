@@ -49,6 +49,72 @@ export default function EditCardModal({ isOpen, onClose, onSave, initialData }) 
 
     if (!isOpen) return null;
 
+    const handlePaste = (e) => {
+        // Implement smart link detection
+        const pastedText = e.clipboardData.getData('text');
+
+        try {
+            const urlObj = new URL(pastedText); // Check if valid URL
+            const hostname = urlObj.hostname.replace('www.', '');
+            const pathname = urlObj.pathname;
+
+            let newPlatform = 'link';
+            let newTitle = '';
+            let newSubtitle = '';
+
+            // Map URL to platform
+            if (hostname.includes('instagram.com')) {
+                newPlatform = 'instagram';
+                newTitle = 'Instagram';
+                const user = pathname.split('/')[1];
+                if (user) newSubtitle = `@${user}`;
+            } else if (hostname.includes('twitter.com') || hostname.includes('x.com')) {
+                newPlatform = 'twitter';
+                newTitle = 'Twitter';
+                const user = pathname.split('/')[1];
+                if (user) newSubtitle = `@${user}`;
+            } else if (hostname.includes('github.com')) {
+                newPlatform = 'github';
+                newTitle = 'GitHub';
+                const user = pathname.split('/')[1];
+                if (user) newSubtitle = `@${user}`;
+            } else if (hostname.includes('linkedin.com') && pathname.includes('/in/')) {
+                newPlatform = 'linkedin';
+                newTitle = 'LinkedIn';
+                const user = pathname.split('/in/')[1]?.split('/')[0];
+                if (user) newSubtitle = `Connect with ${user}`;
+            } else if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) {
+                newPlatform = 'youtube';
+                newTitle = 'YouTube';
+                if (pathname.includes('/@')) {
+                    newSubtitle = pathname.split('/')[1]; // includes @
+                } else {
+                    newSubtitle = 'Subscribe';
+                }
+            } else if (hostname.includes('wa.me') || hostname.includes('whatsapp.com')) {
+                newPlatform = 'whatsapp';
+                newTitle = 'WhatsApp';
+                newSubtitle = 'Chat on WhatsApp';
+            }
+
+            // If we detected a specific platform, update form data ONLY if fields are empty/default
+            if (newPlatform !== 'link') {
+                setFormData(prev => ({
+                    ...prev,
+                    platform: (prev.platform === 'link' || !prev.platform) ? newPlatform : prev.platform,
+                    title: (!prev.title || prev.title === 'New Link') ? newTitle : prev.title,
+                    subtitle: (!prev.subtitle || prev.subtitle === 'Edit this card') ? newSubtitle : prev.subtitle,
+                    url: pastedText // Ensure pasted text is set (state update might race with default paste)
+                }));
+                // Prevent default paste behavior as we're handling it manually via state
+                e.preventDefault();
+            }
+
+        } catch (error) {
+            // Not a valid URL, ignore and let default paste happen
+        }
+    };
+
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -112,6 +178,7 @@ export default function EditCardModal({ isOpen, onClose, onSave, initialData }) 
                             name="url"
                             value={formData.url}
                             onChange={handleChange}
+                            onPaste={handlePaste} // Detect smart paste
                             placeholder="https://..."
                             className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black focus:border-transparent transition-all outline-none"
                         />
