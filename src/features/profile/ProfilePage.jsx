@@ -9,7 +9,7 @@ import ConfirmationModal from '../../components/ConfirmationModal'; // Import co
 import { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, setDoc, query, where, getDocs, collection } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { Pencil, Plus, Save, X, Trash2, Edit2 } from 'lucide-react';
+import { Pencil, Plus, Save, X, Trash2, Edit2, LogOut } from 'lucide-react';
 import React from 'react';
 
 // Default layouts for new users
@@ -531,12 +531,20 @@ export default function ProfilePage() {
             <div className="max-w-[1200px] mx-auto pb-32">
                 {/* Header / Nav - Simplified for clean look */}
                 <div className="flex justify-end items-center mb-8 px-2">
-                    {!user && (
+                    {!user ? (
                         <button
                             onClick={loginWithGoogle}
                             className="bg-black text-white px-6 py-2.5 rounded-full font-bold text-sm hover:scale-105 transition-transform"
                         >
                             Log in
+                        </button>
+                    ) : (
+                        <button
+                            onClick={logout}
+                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
+                            title="Log Out"
+                        >
+                            <LogOut className="w-5 h-5" />
                         </button>
                     )}
                 </div>
@@ -583,6 +591,17 @@ export default function ProfilePage() {
                                     title="Cancel & Exit"
                                 >
                                     <X className="w-5 h-5" />
+                                </button>
+
+                                <div className="w-px h-8 bg-gray-200 mx-2"></div>
+
+                                {/* Logout Button (Explicit Request) */}
+                                <button
+                                    onClick={logout}
+                                    className="p-3 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                    title="Log Out"
+                                >
+                                    <LogOut className="w-5 h-5" />
                                 </button>
                             </div>
                         ) : (
