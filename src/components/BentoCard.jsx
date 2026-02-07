@@ -10,7 +10,7 @@ export default function BentoCard({ children, className, title, subtitle, icon, 
         <div
             {...props}
             className={cn(
-                "bg-white rounded-[32px] overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col h-full",
+                "bg-white rounded-[32px] overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-full",
                 className
             )}
         >

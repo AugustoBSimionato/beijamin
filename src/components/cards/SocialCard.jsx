@@ -1,56 +1,58 @@
-import { Twitter, Instagram, Github, Youtube, Linkedin, Globe } from 'lucide-react';
+import { Twitter, Instagram, Github, Youtube, Linkedin, Globe, MessageCircle, Link as LinkIcon } from 'lucide-react';
 import { cn } from '../BentoCard';
 
 const platforms = {
-    twitter: { icon: Twitter, color: 'bg-[#1DA1F2]', label: 'Twitter' },
-    instagram: { icon: Instagram, color: 'bg-gradient-to-br from-[#833AB4] via-[#E1306C] to-[#FCAF45]', label: 'Instagram' },
-    github: { icon: Github, color: 'bg-[#24292e]', label: 'GitHub' },
-    youtube: { icon: Youtube, color: 'bg-[#FF0000]', label: 'YouTube' },
-    linkedin: { icon: Linkedin, color: 'bg-[#0077b5]', label: 'LinkedIn' },
-    website: { icon: Globe, color: 'bg-gray-100', label: 'Website' },
+    twitter: { icon: Twitter, color: 'text-[#1DA1F2]', bg: 'bg-[#1DA1F2]/10', label: 'Twitter' },
+    instagram: { icon: Instagram, color: 'text-[#E1306C]', bg: 'bg-[#E1306C]/10', label: 'Instagram' }, // Gradient text is hard, sticking to solid pink-ish
+    github: { icon: Github, color: 'text-[#24292e]', bg: 'bg-[#24292e]/10', label: 'GitHub' },
+    youtube: { icon: Youtube, color: 'text-[#FF0000]', bg: 'bg-[#FF0000]/10', label: 'YouTube' },
+    linkedin: { icon: Linkedin, color: 'text-[#0077b5]', bg: 'bg-[#0077b5]/10', label: 'LinkedIn' },
+    website: { icon: Globe, color: 'text-gray-700', bg: 'bg-gray-100', label: 'Website' },
+    whatsapp: { icon: MessageCircle, color: 'text-[#25D366]', bg: 'bg-[#25D366]/10', label: 'WhatsApp' },
+    link: { icon: LinkIcon, color: 'text-gray-700', bg: 'bg-gray-100', label: 'Link' },
 };
 
-export default function SocialCard({ platform, username, url, className, ...props }) {
-    const config = platforms[platform] || platforms.website;
+export default function SocialCard({ platform, username, url, className, title, subtitle, icon, ...props }) {
+    // Determine configuration
+    let config = platforms[platform] || platforms.link;
+
+    // Override with custom icon if provided (e.g. from props)
+    // If 'icon' prop is passed, we might need to handle it, but for now relying on platform config
+
     const Icon = config.icon;
-    const isLight = platform === 'website';
 
     return (
         <a href={url} target="_blank" rel="noopener noreferrer" className="block h-full w-full group">
             <div
                 className={cn(
-                    "h-full w-full rounded-[24px] overflow-hidden",
+                    "h-full w-full rounded-[32px] overflow-hidden bg-white border border-gray-200", // White bg, border
                     "transition-all duration-300 ease-out",
-                    "hover:shadow-xl hover:shadow-black/15",
+                    "hover:shadow-lg hover:shadow-black/5 hover:border-gray-300",
                     "hover:scale-[1.02]",
-                    config.color,
                     className
                 )}
                 {...props}
             >
-                <div className={cn(
-                    "p-5 h-full flex flex-col justify-between",
-                    isLight ? "text-gray-900" : "text-white"
-                )}>
+                <div className="p-6 h-full flex flex-col justify-between">
                     {/* Icon */}
-                    <div className="flex justify-between items-start">
-                        <Icon className={cn(
-                            "w-7 h-7 transition-transform duration-300 group-hover:scale-110",
-                            isLight ? "text-gray-700" : "text-white"
-                        )} />
+                    <div className="mb-4">
+                        <div className={cn(
+                            "w-12 h-12 rounded-2xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110",
+                            config.bg
+                        )}>
+                            <Icon className={cn(
+                                "w-6 h-6",
+                                config.color
+                            )} />
+                        </div>
                     </div>
 
-                    {/* Label & Username */}
+                    {/* Label & Username/Subtitle */}
                     <div>
-                        <h3 className="font-bold text-base tracking-tight">{config.label}</h3>
-                        {username && (
-                            <p className={cn(
-                                "font-medium text-sm",
-                                isLight ? "text-gray-500" : "text-white/80"
-                            )}>
-                                @{username}
-                            </p>
-                        )}
+                        <h3 className="font-bold text-gray-900 text-lg leading-tight mb-1">{title || config.label}</h3>
+                        <p className="text-sm text-gray-500 font-medium">
+                            {subtitle || (username ? `@${username}` : url ? new URL(url).hostname.replace('www.', '') : 'Visit')}
+                        </p>
                     </div>
                 </div>
             </div>

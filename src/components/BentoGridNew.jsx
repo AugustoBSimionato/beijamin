@@ -1,74 +1,58 @@
-import { useState, useCallback } from 'react';
-import GridLayout from 'react-grid-layout';
+import { Responsive, WidthProvider } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 
-// Bento Grid with actual drag and drop using react-grid-layout
+const ResponsiveGridLayout = WidthProvider(Responsive);
+
+// Bento Grid with responsive capabilities
 export default function BentoGrid({
-    layout = [],
+    layouts,
     children,
     onLayoutChange,
     isEditable = false
 }) {
-    // Configuration
-    const isMobile = containerWidth < 768; // Simple breakpoint
-    const cols = isMobile ? 1 : 4;
-    const rowHeight = isMobile ? 280 : 160; // Taller rows on mobile for better visibility
+    // Default breakpoint configuration
+    // lg: Desktop (4 cols)
+    // md: Tablet (2 cols)
+    // sm: Mobile (1 col)
+    const breakpoints = { lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 };
+    const cols = { lg: 4, md: 2, sm: 1, xs: 1, xxs: 1 };
+
+    // Row height logic
+    // We can't dynamic switch rowHeight easily in RGL without remounting or complex prop passing, 
+    // but RGL's Responsive component accepts `rowHeight` as a number. 
+    // Usually standard rowHeight is fine, but we might want taller rows on mobile.
+    // However, keeping it consistent prevents jumping. Let's stick to a base 160.
+    const rowHeight = 160;
+
+    // Margins
     const margin = [16, 16];
-    const containerPadding = [0, 0];
 
-    // Track container width for responsive behavior
-    const [containerWidth, setContainerWidth] = useState(1200);
+    // Convert children to array
+    const gridChildren = Array.isArray(children) ? children : [children];
 
-    // Reference callback to measure container width
-    const containerRef = useCallback((node) => {
-        if (node !== null) {
-            const resizeObserver = new ResizeObserver((entries) => {
-                for (let entry of entries) {
-                    setContainerWidth(entry.contentRect.width);
-                }
-            });
-            resizeObserver.observe(node);
-            setContainerWidth(node.offsetWidth);
-        }
-    }, []);
-
-    // Handle layout changes from drag/resize
-    const handleLayoutChange = (newLayout) => {
+    // Handle layout changes
+    // currentLayout: the layout for the current breakpoint
+    // allLayouts: map of all layouts { lg: [...], md: [...] }
+    const handleLayoutChange = (currentLayout, allLayouts) => {
         if (onLayoutChange && isEditable) {
-            onLayoutChange(newLayout);
+            onLayoutChange(currentLayout, allLayouts);
         }
     };
 
-    // Calculate container height based on layout
-    const maxY = layout.reduce((max, item) => {
-        // Simple estimation for mobile height/scroll
-        const bottom = item.y + item.h;
-        return bottom > max ? bottom : max;
-    }, 0);
-    const containerHeight = maxY * rowHeight + (maxY + 1) * margin[1] + 32;
-
-    // Convert children array to proper format
-    const gridChildren = Array.isArray(children) ? children : [children];
-
     return (
-        <div
-            ref={containerRef}
-            className="w-full max-w-[1200px] mx-auto relative px-4 md:px-0" // Added padding for mobile
-            style={{ minHeight: containerHeight }}
-        >
-            <GridLayout
+        <div className="w-full max-w-[1200px] mx-auto relative px-4 md:px-0">
+            <ResponsiveGridLayout
                 className="layout"
-                layout={layout}
+                layouts={layouts}
+                breakpoints={breakpoints}
                 cols={cols}
                 rowHeight={rowHeight}
-                width={containerWidth}
                 margin={margin}
-                containerPadding={containerPadding}
                 onLayoutChange={handleLayoutChange}
                 isDraggable={isEditable}
                 isResizable={isEditable}
-                draggableHandle=".drag-handle"
                 useCSSTransforms={true}
+                draggableCancel=".no-drag"
                 compactType="vertical"
                 preventCollision={false}
             >
@@ -77,23 +61,10 @@ export default function BentoGrid({
                     return (
                         <div key={child.key} className="relative">
                             {child}
-                            {/* Drag Handle - Only visible in edit mode */}
-                            {isEditable && (
-                                <div className="drag-handle absolute top-2 right-2 z-20 cursor-move bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg opacity-0 hover:opacity-100 transition-all duration-200 backdrop-blur-sm">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <circle cx="9" cy="5" r="1" fill="currentColor" />
-                                        <circle cx="15" cy="5" r="1" fill="currentColor" />
-                                        <circle cx="9" cy="12" r="1" fill="currentColor" />
-                                        <circle cx="15" cy="12" r="1" fill="currentColor" />
-                                        <circle cx="9" cy="19" r="1" fill="currentColor" />
-                                        <circle cx="15" cy="19" r="1" fill="currentColor" />
-                                    </svg>
-                                </div>
-                            )}
                         </div>
                     );
                 })}
-            </GridLayout>
+            </ResponsiveGridLayout>
 
             {/* Edit Mode Indicator */}
             {isEditable && (

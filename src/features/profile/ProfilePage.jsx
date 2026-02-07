@@ -4,23 +4,54 @@ import BentoGrid from '../../components/BentoGridNew';
 import BentoCard from '../../components/BentoCard';
 import SocialCard from '../../components/cards/SocialCard';
 import LinkCard from '../../components/cards/LinkCard';
-import { useState, useEffect } from 'react';
+import EditCardModal from '../../components/EditCardModal'; // Import new modal
+import ConfirmationModal from '../../components/ConfirmationModal'; // Import confirmation modal
+import { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, setDoc, query, where, getDocs, collection } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { Pencil, Plus, Save, LogOut, X } from 'lucide-react';
+import { Pencil, Plus, Save, LogOut, X, Trash2, Edit2 } from 'lucide-react';
+import React from 'react';
 
-console.log("ProfilePage.jsx loaded");
+// Default layouts for new users
+const defaultLayouts = {
+    lg: [
+        { i: 'profile', x: 0, y: 0, w: 2, h: 4 }, // Taller profile section
+        { i: 'instagram', x: 2, y: 0, w: 1, h: 1 },
+        { i: 'twitter', x: 3, y: 0, w: 1, h: 1 },
+        { i: 'github', x: 2, y: 1, w: 1, h: 1 },
+        { i: 'youtube', x: 3, y: 1, w: 1, h: 1 },
+        { i: 'portfolio', x: 2, y: 2, w: 2, h: 1 },
+        { i: 'blog', x: 2, y: 3, w: 2, h: 1 },
+    ],
+    md: [
+        { i: 'profile', x: 0, y: 0, w: 2, h: 2 },
+        { i: 'instagram', x: 0, y: 2, w: 1, h: 1 },
+        { i: 'twitter', x: 1, y: 2, w: 1, h: 1 },
+        { i: 'github', x: 0, y: 3, w: 1, h: 1 },
+        { i: 'youtube', x: 1, y: 3, w: 1, h: 1 },
+        { i: 'portfolio', x: 0, y: 4, w: 2, h: 1 },
+        { i: 'blog', x: 0, y: 5, w: 2, h: 1 },
+    ],
+    sm: [
+        { i: 'profile', x: 0, y: 0, w: 1, h: 2 }, // Mobile profile
+        { i: 'instagram', x: 0, y: 2, w: 1, h: 1 },
+        { i: 'twitter', x: 0, y: 3, w: 1, h: 1 },
+        { i: 'github', x: 0, y: 4, w: 1, h: 1 },
+        { i: 'youtube', x: 0, y: 5, w: 1, h: 1 },
+        { i: 'portfolio', x: 0, y: 6, w: 1, h: 1 },
+        { i: 'blog', x: 0, y: 7, w: 1, h: 1 },
+    ]
+};
 
-// Default layout for new users
-const defaultLayout = [
-    { i: 'profile', x: 0, y: 0, w: 2, h: 2 },
-    { i: 'instagram', x: 2, y: 0, w: 1, h: 1 },
-    { i: 'twitter', x: 3, y: 0, w: 1, h: 1 },
-    { i: 'github', x: 2, y: 1, w: 1, h: 1 },
-    { i: 'youtube', x: 3, y: 1, w: 1, h: 1 },
-    { i: 'portfolio', x: 0, y: 2, w: 2, h: 1 },
-    { i: 'blog', x: 2, y: 2, w: 2, h: 1 },
-];
+// Default items data
+const defaultItems = {
+    instagram: { id: 'instagram', type: 'social', platform: 'whatsapp', title: 'Mentoria VIP', subtitle: 'bit.ly', url: 'https://whatsapp.com' },
+    twitter: { id: 'twitter', type: 'social', platform: 'link', title: 'Contato', subtitle: 'gmail.com', url: 'mailto:contact@example.com' },
+    github: { id: 'github', type: 'social', platform: 'whatsapp', title: 'Curso Vértice', subtitle: 'wa.me', url: 'https://wa.me' },
+    youtube: { id: 'youtube', type: 'social', platform: 'whatsapp', title: 'Agendar Consulta', subtitle: 'wa.me', url: 'https://wa.me' },
+    portfolio: { id: 'portfolio', type: 'link', title: 'Portfolio', image: 'https://images.unsplash.com/photo-1588776814546-1ffcf4722e12?w=800&h=800&fit=crop', url: '#' },
+    blog: { id: 'blog', type: 'social', platform: 'website', title: 'Website', subtitle: 'mysite.com', url: 'https://example.com' },
+};
 
 export default function ProfilePage() {
     const { username } = useParams();
@@ -29,11 +60,40 @@ export default function ProfilePage() {
     // Check ownership
     const isOwner = user && user.email.split('@')[0] === username;
 
-    const [layout, setLayout] = useState(defaultLayout);
+    const [layouts, setLayouts] = useState(defaultLayouts);
+    const [items, setItems] = useState(defaultItems); // State for card data
     const [profileData, setProfileData] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+    // Modal state
+    const [editingCardId, setEditingCardId] = useState(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [deleteConfirmationId, setDeleteConfirmationId] = useState(null); // ID of card to delete
+
+    // Bio editing
+    const handleBioChange = (e) => {
+        setProfileData(prev => ({ ...prev, bio: e.target.value }));
+        setHasUnsavedChanges(true); // Ensure save button enables
+    };
+
+    // Helper to migrate legacy single layout to layouts object
+    const migrateLayout = (data) => {
+        if (data.layouts && Object.keys(data.layouts).length > 0) {
+            return data.layouts;
+        }
+        if (data.layout && data.layout.length > 0) {
+            // Lazy migration: Use old desktop layout for lg and md, generate sm
+            console.log("Migrating legacy layout...");
+            return {
+                lg: data.layout,
+                md: data.layout,
+                sm: data.layout.map(item => ({ ...item, x: 0, w: 1 })) // Simplistic mobile conversion
+            };
+        }
+        return defaultLayouts;
+    };
 
     // Fetch user data from Firestore
     useEffect(() => {
@@ -45,21 +105,22 @@ export default function ProfilePage() {
                     const docSnap = await getDoc(docRef);
                     if (docSnap.exists()) {
                         const data = docSnap.data();
-                        if (data.layout && data.layout.length > 0) {
-                            setLayout(data.layout);
-                        }
+                        setLayouts(migrateLayout(data));
+                        if (data.items) setItems(data.items); // Load items if exist
+
                         setProfileData({
                             displayName: data.displayName || user.displayName,
                             photoURL: data.photoURL || user.photoURL,
                             bio: data.bio || "Creating cool things."
                         });
+                        document.title = `${data.displayName || user.displayName} | Beijamin`;
                     } else {
-                        // User exists in Auth but not Firestore yet (shouldn't happen with AuthContext fix, but safety net)
                         setProfileData({
                             displayName: user.displayName,
                             photoURL: user.photoURL,
                             bio: "Creating cool things."
                         });
+                        document.title = `${user.displayName} | Beijamin`;
                     }
                 } catch (e) {
                     console.error("Error fetching profile:", e);
@@ -80,14 +141,15 @@ export default function ProfilePage() {
                         const data = userDoc.data();
 
                         // Visitor found the user!
-                        if (data.layout && data.layout.length > 0) {
-                            setLayout(data.layout);
-                        }
+                        setLayouts(migrateLayout(data));
+                        if (data.items) setItems(data.items);
+
                         setProfileData({
                             displayName: data.displayName || username,
                             photoURL: data.photoURL || null,
                             bio: data.bio || "Welcome to my profile."
                         });
+                        document.title = `${data.displayName || username} | Beijamin`;
                     } else {
                         // User not found in Firestore
                         console.log("User not found via query");
@@ -96,6 +158,7 @@ export default function ProfilePage() {
                             photoURL: null,
                             bio: "Welcome to my profile."
                         });
+                        document.title = `${username} | Beijamin`;
                     }
                 } catch (e) {
                     console.error("Error fetching public profile:", e);
@@ -111,8 +174,8 @@ export default function ProfilePage() {
     }, [isOwner, user, username]);
 
     // Handle layout changes from drag/drop
-    const handleLayoutChange = (newLayout) => {
-        setLayout(newLayout);
+    const handleLayoutChange = (currentLayout, allLayouts) => {
+        setLayouts(allLayouts);
         setHasUnsavedChanges(true);
     };
 
@@ -130,27 +193,20 @@ export default function ProfilePage() {
         try {
             // Ensure no undefined values are passed to Firestore
             const rawData = {
-                layout: layout || [],
+                layouts: layouts,
+                items: items, // Save items!
                 displayName: profileData?.displayName || user.displayName || "User",
                 bio: profileData?.bio || "Creating cool things.",
                 photoURL: profileData?.photoURL || user.photoURL || null,
-                username: username || "user", // Fallback if username is somehow undefined
-                updatedAt: new Date().toISOString() // Use string for date to be safe with JSON hack, or keep date object if not using JSON hack method
+                username: username || "user",
+                updatedAt: new Date().toISOString()
             };
 
-            // Using a strict sanitizer that preserves Dates if needed, but JSON.parse/stringify is easiest for removing undefineds
-            // Firestore handles nulls, but hates undefined.
             const saveData = sanitizeForFirestore(rawData);
 
-            // Restore Date object if needed, or Firestore accepts ISO strings nicely too usually, 
-            // but let's keep it as ServerTimestamp or Date object if possible.
-            // Actually, let's just manually sanitize the specific fields we know might be trouble, 
-            // or use a better sanitizer.
-
-            // Clean simple sanitization:
             const finalData = {
                 ...saveData,
-                updatedAt: new Date() // Put the date back as a real Date object
+                updatedAt: new Date()
             };
 
             console.log("Saving clean data:", finalData);
@@ -161,7 +217,6 @@ export default function ProfilePage() {
             setIsEditMode(false);
         } catch (e) {
             console.error("Error saving profile", e);
-            alert(`Failed to save: ${e.message}`);
         } finally {
             setIsSaving(false);
         }
@@ -169,15 +224,85 @@ export default function ProfilePage() {
 
     // Add a new card block
     const addNewCard = () => {
-        const newId = `card-${Date.now()}`;
-        // Find the lowest available y position
-        const maxY = layout.reduce((max, item) => {
-            const bottom = item.y + item.h;
-            return bottom > max ? bottom : max;
-        }, 0);
+        const newId = "card-" + Date.now();
 
-        const newLayoutItem = { i: newId, x: 0, y: maxY, w: 1, h: 1 };
-        setLayout(prev => [...prev, newLayoutItem]);
+        // Helper to find bottom for a specific layout array
+        const findBottom = (layoutArray) => {
+            return layoutArray.reduce((max, item) => {
+                const bottom = item.y + item.h;
+                return bottom > max ? bottom : max;
+            }, 0);
+        };
+
+        const newLayouts = { ...layouts };
+
+        // Add to all responsive layouts
+        ['lg', 'md', 'sm'].forEach(breakpoint => {
+            if (!newLayouts[breakpoint]) newLayouts[breakpoint] = [];
+            const maxY = findBottom(newLayouts[breakpoint]);
+            // For sm/mobile force width to 1, otherwise 1
+            const width = breakpoint === 'sm' ? 1 : 1;
+            newLayouts[breakpoint] = [
+                ...newLayouts[breakpoint],
+                { i: newId, x: 0, y: maxY, w: width, h: 1 }
+            ];
+        });
+
+        // Add to items
+        setItems(prev => ({
+            ...prev,
+            [newId]: { id: newId, type: 'social', platform: 'link', title: 'New Link', subtitle: 'Edit this card', url: '#' }
+        }));
+
+        setLayouts(newLayouts);
+        setHasUnsavedChanges(true);
+    };
+
+    // Delete card - prepare for confirmation
+    const handleDeleteCard = (id) => {
+        setDeleteConfirmationId(id);
+    };
+
+    // Confirm Deletion
+    const confirmDelete = () => {
+        if (!deleteConfirmationId) return;
+        const id = deleteConfirmationId;
+
+        // Remove from layouts
+        const newLayouts = { ...layouts };
+        ['lg', 'md', 'sm'].forEach(bk => {
+            if (newLayouts[bk]) {
+                newLayouts[bk] = newLayouts[bk].filter(item => item.i !== id);
+            }
+        });
+        setLayouts(newLayouts);
+
+        // Remove from items
+        const newItems = { ...items };
+        delete newItems[id];
+        setItems(newItems);
+
+        setHasUnsavedChanges(true);
+        setDeleteConfirmationId(null);
+    };
+
+    // Open Edit Modal
+    const handleEditCard = (id) => {
+        setEditingCardId(id);
+        setIsModalOpen(true);
+    };
+
+    // Save Card Changes from Modal
+    const handleSaveCardData = (newData) => {
+        if (!editingCardId) return;
+
+        setItems(prev => ({
+            ...prev,
+            [editingCardId]: {
+                ...prev[editingCardId],
+                ...newData
+            }
+        }));
         setHasUnsavedChanges(true);
     };
 
@@ -187,132 +312,263 @@ export default function ProfilePage() {
         // TODO: Could restore original layout here
     };
 
-    return (
-        <div className="min-h-screen p-4 md:p-8 bg-[#F7F7F5]">
-            <div className="max-w-[1200px] mx-auto">
-                {/* Header / Nav */}
-                <div className="flex justify-between items-center mb-8 px-2">
-                    <h1 className="text-2xl font-bold truncate max-w-[70%] text-gray-900">@{username}</h1>
-                    <div className="flex gap-2">
-                        {!isOwner && (
-                            <button
-                                onClick={loginWithGoogle}
-                                className="bg-black text-white px-4 py-2 rounded-full font-bold text-sm hover:scale-105 transition-transform"
-                            >
-                                Sign Up
-                            </button>
-                        )}
+    // Helper to extract keys from layouts to render items
+    const allKeys = new Set();
+    Object.values(layouts).forEach(layoutArr => {
+        layoutArr?.forEach(item => allKeys.add(item.i));
+    });
+
+    // Dynamic Favicon - Circular Crop or Initials
+    useEffect(() => {
+        const updateFavicon = (url) => {
+            let link = document.querySelector("link[rel~='icon']");
+            if (!link) {
+                link = document.createElement('link');
+                link.rel = 'icon';
+                document.head.appendChild(link);
+            }
+            link.href = url;
+        };
+
+        const drawInitialsFavicon = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 64;
+            canvas.height = 64;
+
+            // Background
+            ctx.fillStyle = "#000000"; // Black background
+            ctx.beginPath();
+            ctx.arc(32, 32, 32, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Text
+            ctx.fillStyle = "#FFFFFF";
+            ctx.font = "bold 32px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+
+            const name = profileData?.displayName || username || "U";
+            const initials = name.slice(0, 2).toUpperCase();
+            ctx.fillText(initials, 32, 32);
+
+            updateFavicon(canvas.toDataURL());
+        };
+
+        if (profileData?.photoURL) {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.referrerPolicy = "no-referrer";
+            // Append timestamp to bypass potential 429 cache
+            img.src = `${profileData.photoURL}${profileData.photoURL.includes('?') ? '&' : '?'}t=${Date.now()}`;
+
+            img.onload = () => {
+                try {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+
+                    canvas.width = 64;
+                    canvas.height = 64;
+
+                    ctx.beginPath();
+                    ctx.arc(32, 32, 32, 0, 2 * Math.PI);
+                    ctx.closePath();
+                    ctx.clip();
+
+                    ctx.drawImage(img, 0, 0, 64, 64);
+                    updateFavicon(canvas.toDataURL());
+                } catch (e) {
+                    console.error("Error generating favicon (canvas):", e);
+                    drawInitialsFavicon(); // Fallback
+                }
+            };
+
+            img.onerror = (e) => {
+                console.error("Error loading profile image for favicon:", e);
+                drawInitialsFavicon(); // Fallback
+            };
+        } else {
+            drawInitialsFavicon();
+        }
+    }, [profileData?.photoURL, profileData?.displayName, username]);
+
+    // Render a card based on its item data
+    const renderCard = (key) => {
+        if (key === 'profile') {
+            return (
+                <div key="profile" className="h-full">
+                    <div className="h-full flex flex-col justify-center px-4 md:px-0">
+                        <div className="w-[180px] h-[180px] rounded-full overflow-hidden mb-6 border border-gray-100 shadow-sm relative group flex-none self-start">
+                            {profileData?.photoURL ? (
+                                <img
+                                    src={profileData.photoURL}
+                                    alt="Avatar"
+                                    className="w-full h-full object-cover"
+                                    referrerPolicy="no-referrer"
+                                />
+                            ) : (
+                                <div className="w-full h-full bg-gray-200 flex items-center justify-center text-4xl">👤</div>
+                            )}
+                        </div>
+                        <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-black mb-3">
+                            {profileData?.displayName || username}
+                        </h1>
+                        <p className="text-gray-500 text-lg md:text-xl font-medium max-w-sm leading-relaxed">
+                            {isEditMode ? (
+                                <textarea
+                                    value={profileData?.bio || ""}
+                                    onChange={handleBioChange}
+                                    className="no-drag w-full bg-white border border-gray-200 rounded-xl p-2 focus:ring-2 focus:ring-black outline-none resize-none"
+                                    rows={3}
+                                    placeholder="Write a short bio..."
+                                />
+                            ) : (
+                                profileData?.bio
+                            )}
+                        </p>
                     </div>
+                </div>
+            );
+        }
+
+        const item = items[key];
+
+        // Fallback for missing items (legacy keys or sync issues)
+        if (!item) {
+            return (
+                <div key={key} className="h-full relative group/card">
+                    {isEditMode && (
+                        <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleDeleteCard(key); }}
+                                className="no-drag pointer-events-auto p-2 bg-white text-red-500 rounded-full shadow-lg hover:scale-110 transition-transform"
+                                title="Delete Empty Block"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        </div>
+                    )}
+                    <BentoCard className="bg-gray-50 flex items-center justify-center h-full border-2 border-dashed border-gray-200">
+                        <p className="text-gray-400 text-xs">Empty / Legacy Item</p>
+                    </BentoCard>
+                </div>
+            );
+        }
+
+        const isSocial = item.type === 'social' || !item.image;
+
+        return (
+            <div key={key} className="h-full relative group/card">
+                {isEditMode && (
+                    <div className="absolute inset-0 z-50 bg-black/5 opacity-0 group-hover/card:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none">
+                        <button
+                            onClick={(e) => { e.stopPropagation(); handleEditCard(key); }}
+                            className="no-drag pointer-events-auto p-3 bg-white text-black rounded-full shadow-lg hover:scale-110 transition-transform"
+                            title="Edit"
+                        >
+                            <Edit2 className="w-5 h-5" />
+                        </button>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); handleDeleteCard(key); }}
+                            className="no-drag pointer-events-auto p-3 bg-white text-red-500 rounded-full shadow-lg hover:scale-110 transition-transform"
+                            title="Delete"
+                        >
+                            <Trash2 className="w-5 h-5" />
+                        </button>
+                    </div>
+                )}
+
+                <div className={isEditMode ? "pointer-events-none h-full" : "h-full"}>
+                    {item.image ? (
+                        <div className="w-full h-full rounded-[32px] overflow-hidden bg-gray-100">
+                            <img
+                                src={item.image}
+                                alt={item.title}
+                                className="w-full h-full object-cover"
+                            />
+                        </div>
+                    ) : (
+                        <SocialCard
+                            platform={item.platform}
+                            title={item.title}
+                            subtitle={item.subtitle}
+                            url={item.url}
+                        />
+                    )}
+                </div>
+            </div>
+        );
+    };
+
+    return (
+        <div className="min-h-screen p-4 md:p-8 bg-[#FAFAFA] text-gray-900 font-sans">
+            <div className="max-w-[1200px] mx-auto pb-32">
+                {/* Header / Nav - Simplified for clean look */}
+                <div className="flex justify-end items-center mb-8 px-2">
+                    {!user && (
+                        <button
+                            onClick={loginWithGoogle}
+                            className="bg-black text-white px-6 py-2.5 rounded-full font-bold text-sm hover:scale-105 transition-transform"
+                        >
+                            Log in
+                        </button>
+                    )}
                 </div>
 
                 <BentoGrid
-                    layout={layout}
+                    layouts={layouts}
                     isEditable={isEditMode}
                     onLayoutChange={handleLayoutChange}
                 >
-                    <div key="profile">
-                        <BentoCard title="Profile" className="bg-white justify-center items-center text-center">
-                            <div className="p-6 flex flex-col items-center justify-center h-full">
-                                <div className="w-32 h-32 bg-gray-200 rounded-full mb-6 overflow-hidden border-4 border-gray-50 flex items-center justify-center shadow-inner">
-                                    {profileData?.photoURL ? (
-                                        <img src={profileData.photoURL} alt="Avatar" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <span className="text-4xl">👤</span>
-                                    )}
-                                </div>
-                                <h2 className="text-3xl font-extrabold tracking-tight">{profileData?.displayName || username}</h2>
-                                <p className="text-gray-500 mt-2 font-medium max-w-xs leading-relaxed">{profileData?.bio}</p>
-                            </div>
-                        </BentoCard>
-                    </div>
-
-                    <div key="instagram">
-                        <SocialCard platform="instagram" username="augusto" url="https://instagram.com" />
-                    </div>
-                    <div key="twitter">
-                        <SocialCard platform="twitter" username="augusto" url="https://twitter.com" />
-                    </div>
-                    <div key="github">
-                        <SocialCard platform="github" username="augusto" url="https://github.com" />
-                    </div>
-                    <div key="youtube">
-                        <SocialCard platform="youtube" username="augusto" url="https://youtube.com" />
-                    </div>
-
-                    <div key="portfolio">
-                        <LinkCard
-                            title="My Portfolio"
-                            subtitle="Check out my latest case studies and UI designs."
-                            url="https://example.com"
-                            image="https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800&h=600&fit=crop"
-                        />
-                    </div>
-                    <div key="blog">
-                        <LinkCard
-                            title="Read my Blog"
-                            subtitle="Thoughts on React, Design Systems, and Bento Grids."
-                            url="https://example.com/blog"
-                            image="https://images.unsplash.com/photo-1499951360447-b19be8fe80f5?w=800&h=600&fit=crop"
-                        />
-                    </div>
-
-                    {/* Dynamically added cards */}
-                    {layout.filter(l => l.i.startsWith('card-')).map(l => (
-                        <div key={l.i}>
-                            <BentoCard className="bg-white flex items-center justify-center h-full">
-                                <div className="text-center p-4">
-                                    <div className="w-12 h-12 bg-gray-100 rounded-xl mx-auto mb-3 flex items-center justify-center">
-                                        <Plus className="w-6 h-6 text-gray-400" />
-                                    </div>
-                                    <p className="text-gray-400 text-sm font-medium">New Block</p>
-                                </div>
-                            </BentoCard>
-                        </div>
-                    ))}
+                    {Array.from(allKeys).map(key => renderCard(key))}
                 </BentoGrid>
 
                 {/* Floating Action Buttons */}
                 {isOwner && (
                     <>
-                        {/* Edit Mode Toolbar */}
+                        {/* Edit Mode Toolbar - Floating Pill Design */}
                         {isEditMode ? (
-                            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-xl shadow-2xl border border-gray-200 rounded-full py-3 px-6 flex items-center gap-3 z-50">
+                            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-xl shadow-2xl shadow-black/10 border border-gray-100 rounded-2xl py-2 px-3 flex items-center gap-1 z-50 animate-in slide-in-from-bottom-5 duration-300">
                                 {/* Add Block Button */}
                                 <button
                                     onClick={addNewCard}
-                                    className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-full font-semibold text-sm transition-all hover:scale-105"
+                                    className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-3 rounded-xl font-bold text-sm transition-all hover:scale-105 shadow-sm"
                                 >
-                                    <Plus className="w-4 h-4" />
+                                    <Plus className="w-5 h-5" />
                                     Add Block
                                 </button>
 
-                                <div className="w-px h-8 bg-gray-200"></div>
+                                <div className="w-px h-8 bg-gray-200 mx-2"></div>
+
+                                {/* Link Button (Example) */}
+                                <button className="p-3 text-gray-400 hover:text-black hover:bg-gray-100 rounded-xl transition-all">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                                </button>
+                                {/* Image Button (Example) */}
+                                <button className="p-3 text-gray-400 hover:text-black hover:bg-gray-100 rounded-xl transition-all">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                                </button>
+                                {/* Text Button (Example) */}
+                                <button className="p-3 text-gray-400 hover:text-black hover:bg-gray-100 rounded-xl transition-all">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14 2z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg>
+                                </button>
+
+                                <div className="w-px h-8 bg-gray-200 mx-2"></div>
 
                                 {/* Save Button */}
                                 <button
                                     onClick={saveProfile}
-                                    disabled={isSaving}
-                                    className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-5 py-2.5 rounded-full font-semibold text-sm transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    disabled={isSaving || !hasUnsavedChanges}
+                                    className="p-3 text-black hover:bg-gray-100 rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                                    title="Save"
                                 >
-                                    <Save className="w-4 h-4" />
-                                    {isSaving ? 'Saving...' : 'Save'}
+                                    <Save className="w-5 h-5" />
                                 </button>
-
-                                {/* Cancel Button */}
-                                <button
-                                    onClick={cancelEdit}
-                                    className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all"
-                                    title="Cancel"
-                                >
-                                    <X className="w-5 h-5" />
-                                </button>
-
-                                <div className="w-px h-8 bg-gray-200"></div>
 
                                 {/* Logout Button */}
                                 <button
                                     onClick={() => logout()}
-                                    className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
+                                    className="p-3 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
                                     title="Logout"
                                 >
                                     <LogOut className="w-5 h-5" />
@@ -322,7 +578,7 @@ export default function ProfilePage() {
                             /* Edit Button (when not in edit mode) */
                             <button
                                 onClick={() => setIsEditMode(true)}
-                                className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-black hover:bg-gray-800 text-white px-6 py-3 rounded-full font-bold text-sm shadow-2xl shadow-black/20 z-50 flex items-center gap-2 transition-all hover:scale-105"
+                                className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-black hover:bg-gray-800 text-white px-6 py-3 rounded-full font-bold text-sm shadow-2xl shadow-black/20 z-50 flex items-center gap-2 transition-all hover:scale-105 animate-in fade-in slide-in-from-bottom-5 duration-500"
                             >
                                 <Pencil className="w-4 h-4" />
                                 Edit Profile
@@ -330,6 +586,23 @@ export default function ProfilePage() {
                         )}
                     </>
                 )}
+
+                <EditCardModal
+                    isOpen={isModalOpen}
+                    onClose={() => setIsModalOpen(false)}
+                    onSave={handleSaveCardData}
+                    initialData={editingCardId ? items[editingCardId] : null}
+                />
+
+                <ConfirmationModal
+                    isOpen={!!deleteConfirmationId}
+                    onClose={() => setDeleteConfirmationId(null)}
+                    onConfirm={confirmDelete}
+                    title="Delete Card"
+                    message="Are you sure you want to delete this card? This action cannot be undone."
+                    confirmText="Delete"
+                    isDestructive={true}
+                />
             </div>
         </div>
     );
