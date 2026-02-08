@@ -15,7 +15,7 @@ export default function BentoGrid({
     // md: Tablet (2 cols)
     // sm: Mobile (1 col)
     const breakpoints = { lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 };
-    const cols = { lg: 4, md: 2, sm: 1, xs: 1, xxs: 1 };
+    const cols = { lg: 8, md: 4, sm: 1, xs: 1, xxs: 1 };
 
     // Row height logic
     // We can't dynamic switch rowHeight easily in RGL without remounting or complex prop passing, 

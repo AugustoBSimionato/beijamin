@@ -16,20 +16,20 @@ import React from 'react';
 // Default layouts for new users
 const defaultLayouts = {
     lg: [
-        { i: 'instagram', x: 2, y: 0, w: 1, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
-        { i: 'twitter', x: 3, y: 0, w: 1, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
-        { i: 'github', x: 2, y: 1, w: 1, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
-        { i: 'youtube', x: 3, y: 1, w: 1, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
-        { i: 'portfolio', x: 2, y: 2, w: 2, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
-        { i: 'blog', x: 2, y: 3, w: 2, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
+        { i: 'instagram', x: 4, y: 0, w: 2, h: 1, minW: 1, maxW: 4, minH: 1, maxH: 2 },
+        { i: 'twitter', x: 6, y: 0, w: 2, h: 1, minW: 1, maxW: 4, minH: 1, maxH: 2 },
+        { i: 'github', x: 4, y: 1, w: 2, h: 1, minW: 1, maxW: 4, minH: 1, maxH: 2 },
+        { i: 'youtube', x: 6, y: 1, w: 2, h: 1, minW: 1, maxW: 4, minH: 1, maxH: 2 },
+        { i: 'portfolio', x: 4, y: 2, w: 4, h: 1, minW: 1, maxW: 4, minH: 1, maxH: 2 },
+        { i: 'blog', x: 4, y: 3, w: 4, h: 1, minW: 1, maxW: 4, minH: 1, maxH: 2 },
     ],
     md: [
-        { i: 'instagram', x: 0, y: 0, w: 1, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
-        { i: 'twitter', x: 1, y: 0, w: 1, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
-        { i: 'github', x: 0, y: 1, w: 1, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
-        { i: 'youtube', x: 1, y: 1, w: 1, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
-        { i: 'portfolio', x: 0, y: 2, w: 2, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
-        { i: 'blog', x: 0, y: 3, w: 2, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
+        { i: 'instagram', x: 0, y: 0, w: 2, h: 1, minW: 1, maxW: 4, minH: 1, maxH: 2 },
+        { i: 'twitter', x: 2, y: 0, w: 2, h: 1, minW: 1, maxW: 4, minH: 1, maxH: 2 },
+        { i: 'github', x: 0, y: 1, w: 2, h: 1, minW: 1, maxW: 4, minH: 1, maxH: 2 },
+        { i: 'youtube', x: 2, y: 1, w: 2, h: 1, minW: 1, maxW: 4, minH: 1, maxH: 2 },
+        { i: 'portfolio', x: 0, y: 2, w: 4, h: 1, minW: 1, maxW: 4, minH: 1, maxH: 2 },
+        { i: 'blog', x: 0, y: 3, w: 4, h: 1, minW: 1, maxW: 4, minH: 1, maxH: 2 },
     ],
     sm: [
         { i: 'instagram', x: 0, y: 0, w: 1, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
@@ -150,28 +150,54 @@ export default function ProfilePage() {
         }
 
         // Enforce constraints on migrated/loaded layouts
-        const applyConstraints = (layout) => {
+        const applyConstraints = (layout, breakpoint) => {
+            const isWide = breakpoint === 'lg' || breakpoint === 'md';
+            const multiplier = isWide ? 2 : 1;
+            const maxCols = breakpoint === 'lg' ? 8 : (breakpoint === 'md' ? 4 : 1);
+
             return layout.map(item => {
-                if (item.i === 'profile') {
-                    return { ...item, minW: 2, minH: 2 }; // Keep profile flexible but min sized
+                // Check if this looks like a legacy layout (small width/coords)
+                // If max X + W <= old max cols, it's likely legacy
+                // Old max cols: lg=4, md=2
+                const looksLegacy = (item.x + item.w) <= (breakpoint === 'lg' ? 4 : 2);
+
+                // If it is legacy and we are on a wide breakpoint, double the values
+                const scale = (isWide && looksLegacy) ? 2 : 1;
+
+                let newItem = { ...item };
+
+                if (scale > 1) {
+                    newItem.x = item.x * scale;
+                    newItem.w = item.w * scale;
+                    // We don't scale Y or H usually, but let's keep H as is as rowHeight is constant
+                    // Actually, if we want to keep consistent Area, we might just scale width
+                    // But visually, if we double columns, a 1x1 becomes 2x1 covers same relative query? No.
+                    // 1 unit width was 25% (1/4). Now 1 unit is 12.5% (1/8). 
+                    // To keep 25% width, we need width 2.
+                    // So yes, scale width and x.
                 }
+
+                if (newItem.i === 'profile') {
+                    // Profile needs to be bigger now?
+                    return { ...newItem, minW: 2 * multiplier, minH: 2 };
+                }
+
                 return {
-                    ...item,
+                    ...newItem,
                     minW: 1,
-                    maxW: 2,
+                    maxW: maxCols, // Allow full width
                     minH: 1,
                     maxH: 2,
-                    // Clamp existing values if they exceed max
-                    w: Math.min(item.w, 2),
-                    h: Math.min(item.h, 2)
+                    w: Math.min(newItem.w, maxCols),
+                    h: Math.min(newItem.h, 2)
                 };
             });
         };
 
         return {
-            lg: applyConstraints(layouts.lg || []).filter(item => item.i !== 'profile'),
-            md: applyConstraints(layouts.md || []).filter(item => item.i !== 'profile'),
-            sm: applyConstraints(layouts.sm || []).filter(item => item.i !== 'profile').map(item => ({ ...item, w: 1, maxW: 1 })) // Force 1 col on mobile
+            lg: applyConstraints(layouts.lg || [], 'lg').filter(item => item.i !== 'profile'),
+            md: applyConstraints(layouts.md || [], 'md').filter(item => item.i !== 'profile'),
+            sm: applyConstraints(layouts.sm || [], 'sm').filter(item => item.i !== 'profile').map(item => ({ ...item, w: 1, maxW: 1 }))
         };
     };
 
@@ -319,9 +345,24 @@ export default function ProfilePage() {
         ['lg', 'md', 'sm'].forEach(breakpoint => {
             if (!newLayouts[breakpoint]) newLayouts[breakpoint] = [];
             const maxY = findBottom(newLayouts[breakpoint]);
-            // For sm/mobile force width to 1, otherwise 1
-            const width = breakpoint === 'sm' ? 1 : 1;
-            const maxW = breakpoint === 'sm' ? 1 : 2;
+
+            // For lg (8 cols) -> default width 2 (25%)
+            // For md (4 cols) -> default width 2 (50%)
+            // For sm (1 col) -> default width 1 (100%)
+
+            let width = 2;
+            let maxW = 4;
+
+            if (breakpoint === 'sm') {
+                width = 1;
+                maxW = 1;
+            } else if (breakpoint === 'lg') {
+                width = 2; // Start at 2/8 = 25%
+                maxW = 4; // Max half width
+            } else {
+                width = 2; // Start at 2/4 = 50%
+                maxW = 4; // Max full width
+            }
 
             newLayouts[breakpoint] = [
                 ...newLayouts[breakpoint],
