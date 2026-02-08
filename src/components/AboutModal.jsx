@@ -27,7 +27,7 @@ export default function AboutModal({ isOpen, onClose }) {
         {
             icon: UserCog,
             title: "Fully Customizable",
-            description: "Edit your bio, avatar, and rearrange blocks to tell your unique story."
+            description: "Edit your bio, and rearrange blocks to tell your unique story."
         }
     ];
 

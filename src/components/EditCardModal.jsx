@@ -9,6 +9,7 @@ const availableIcons = [
     { id: 'linkedin', label: 'LinkedIn', value: 'linkedin' },
     { id: 'website', label: 'Website (Globe)', value: 'website' },
     { id: 'whatsapp', label: 'WhatsApp', value: 'whatsapp' },
+    { id: 'map', label: 'Maps (Location)', value: 'map' },
     { id: 'link', label: 'Generic Link', value: 'link' },
 ];
 
@@ -28,7 +29,8 @@ export default function EditCardModal({ isOpen, onClose, onSave, initialData }) 
                 subtitle: initialData.subtitle || '',
                 url: initialData.url || '',
                 platform: initialData.platform || 'link',
-                image: initialData.image || ''
+                image: initialData.image || '',
+                zoom: initialData.zoom || 3
             });
         }
     }, [initialData]);
@@ -95,6 +97,17 @@ export default function EditCardModal({ isOpen, onClose, onSave, initialData }) 
                 newPlatform = 'whatsapp';
                 newTitle = 'WhatsApp';
                 newSubtitle = 'Chat on WhatsApp';
+            } else if (hostname.includes('google.com/maps') || hostname.includes('maps.google.com') || hostname.includes('goo.gl')) {
+                newPlatform = 'map';
+                newTitle = 'Location';
+
+                // Extract coordinates from URL if possible
+                // Matches @lat,lng,z or ?q=lat,lng
+                const regex = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
+                const match = pastedText.match(regex);
+                if (match) {
+                    setFormData(prev => ({ ...prev, lat: match[1], lng: match[2] }));
+                }
             }
 
             // If we detected a specific platform, update form data ONLY if fields are empty/default
@@ -114,6 +127,8 @@ export default function EditCardModal({ isOpen, onClose, onSave, initialData }) 
             // Not a valid URL, ignore and let default paste happen
         }
     };
+
+    const isMap = formData.platform === 'map';
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -144,47 +159,81 @@ export default function EditCardModal({ isOpen, onClose, onSave, initialData }) 
                         </select>
                     </div>
 
-                    {/* Title */}
+                    {/* Title / Location Name */}
                     <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">Title</label>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                            {isMap ? 'Location Name' : 'Title'}
+                        </label>
                         <input
                             type="text"
                             name="title"
                             value={formData.title}
                             onChange={handleChange}
-                            placeholder="e.g. My Instagram"
+                            placeholder={isMap ? "e.g. San Francisco, CA" : "e.g. My Instagram"}
                             className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black focus:border-transparent transition-all outline-none"
                         />
                     </div>
 
-                    {/* Subtitle */}
-                    <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">Subtitle / Username</label>
-                        <input
-                            type="text"
-                            name="subtitle"
-                            value={formData.subtitle}
-                            onChange={handleChange}
-                            placeholder="e.g. @username or Description"
-                            className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black focus:border-transparent transition-all outline-none"
-                        />
-                    </div>
+                    {/* Subtitle - Hidden for Map if not needed, or use as extra info */}
+                    {!isMap && (
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">Subtitle / Username</label>
+                            <input
+                                type="text"
+                                name="subtitle"
+                                value={formData.subtitle}
+                                onChange={handleChange}
+                                placeholder="e.g. @username or Description"
+                                className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black focus:border-transparent transition-all outline-none"
+                            />
+                        </div>
+                    )}
 
-                    {/* URL */}
+                    {/* URL - Required for Map */}
                     <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">URL</label>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                            {isMap ? 'Google Maps Link' : 'URL'}
+                        </label>
                         <input
                             type="url"
                             name="url"
                             value={formData.url}
                             onChange={handleChange}
                             onPaste={handlePaste} // Detect smart paste
-                            placeholder="https://..."
+                            placeholder={isMap ? "Paste the google maps link here" : "https://..."}
+                            required={isMap}
                             className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black focus:border-transparent transition-all outline-none"
                         />
                     </div>
 
-                    {/* Image URL (Optional) */}
+                    {/* Zoom Level - Only for Map */}
+                    {isMap && (
+                        <div>
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="block text-sm font-semibold text-gray-700">Zoom Level</label>
+                                <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
+                                    {formData.zoom || 3}x
+                                </span>
+                            </div>
+                            <input
+                                type="range"
+                                name="zoom"
+                                min="1"
+                                max="18"
+                                step="1"
+                                value={formData.zoom || 3}
+                                onChange={handleChange}
+                                className="w-full accent-black cursor-pointer"
+                            />
+                            <div className="flex justify-between text-xs text-gray-400 mt-1">
+                                <span>World</span>
+                                <span>City</span>
+                                <span>Street</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Image URL (Optional) - Hidden for map as we use a static map or generated one, or let user override? Keeping optional for flexibility */}
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-1">Image URL (Optional)</label>
                         <input
@@ -192,10 +241,10 @@ export default function EditCardModal({ isOpen, onClose, onSave, initialData }) 
                             name="image"
                             value={formData.image}
                             onChange={handleChange}
-                            placeholder="https://... (for large cards)"
+                            placeholder="https://... (override default look)"
                             className="w-full p-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black focus:border-transparent transition-all outline-none"
                         />
-                        <p className="text-xs text-gray-400 mt-1">Leave empty to use the platform icon style.</p>
+                        <p className="text-xs text-gray-400 mt-1">Leave empty to use the default style.</p>
                     </div>
 
                     <div className="pt-4 flex gap-3">

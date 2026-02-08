@@ -10,37 +10,67 @@ import { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, setDoc, query, where, getDocs, collection } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { Pencil, Plus, Save, X, Trash2, Edit2, LogOut } from 'lucide-react';
+import { Map } from 'pigeon-maps';
 import React from 'react';
 
 // Default layouts for new users
 const defaultLayouts = {
     lg: [
-        { i: 'profile', x: 0, y: 0, w: 2, h: 4 }, // Taller profile section
-        { i: 'instagram', x: 2, y: 0, w: 1, h: 1 },
-        { i: 'twitter', x: 3, y: 0, w: 1, h: 1 },
-        { i: 'github', x: 2, y: 1, w: 1, h: 1 },
-        { i: 'youtube', x: 3, y: 1, w: 1, h: 1 },
-        { i: 'portfolio', x: 2, y: 2, w: 2, h: 1 },
-        { i: 'blog', x: 2, y: 3, w: 2, h: 1 },
+        { i: 'instagram', x: 2, y: 0, w: 1, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
+        { i: 'twitter', x: 3, y: 0, w: 1, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
+        { i: 'github', x: 2, y: 1, w: 1, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
+        { i: 'youtube', x: 3, y: 1, w: 1, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
+        { i: 'portfolio', x: 2, y: 2, w: 2, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
+        { i: 'blog', x: 2, y: 3, w: 2, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
     ],
     md: [
-        { i: 'profile', x: 0, y: 0, w: 2, h: 2 },
-        { i: 'instagram', x: 0, y: 2, w: 1, h: 1 },
-        { i: 'twitter', x: 1, y: 2, w: 1, h: 1 },
-        { i: 'github', x: 0, y: 3, w: 1, h: 1 },
-        { i: 'youtube', x: 1, y: 3, w: 1, h: 1 },
-        { i: 'portfolio', x: 0, y: 4, w: 2, h: 1 },
-        { i: 'blog', x: 0, y: 5, w: 2, h: 1 },
+        { i: 'instagram', x: 0, y: 0, w: 1, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
+        { i: 'twitter', x: 1, y: 0, w: 1, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
+        { i: 'github', x: 0, y: 1, w: 1, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
+        { i: 'youtube', x: 1, y: 1, w: 1, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
+        { i: 'portfolio', x: 0, y: 2, w: 2, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
+        { i: 'blog', x: 0, y: 3, w: 2, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
     ],
     sm: [
-        { i: 'profile', x: 0, y: 0, w: 1, h: 2 }, // Mobile profile
-        { i: 'instagram', x: 0, y: 2, w: 1, h: 1 },
-        { i: 'twitter', x: 0, y: 3, w: 1, h: 1 },
-        { i: 'github', x: 0, y: 4, w: 1, h: 1 },
-        { i: 'youtube', x: 0, y: 5, w: 1, h: 1 },
-        { i: 'portfolio', x: 0, y: 6, w: 1, h: 1 },
-        { i: 'blog', x: 0, y: 7, w: 1, h: 1 },
+        { i: 'instagram', x: 0, y: 0, w: 1, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
+        { i: 'twitter', x: 0, y: 1, w: 1, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
+        { i: 'github', x: 0, y: 2, w: 1, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
+        { i: 'youtube', x: 0, y: 3, w: 1, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
+        { i: 'portfolio', x: 0, y: 4, w: 1, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
+        { i: 'blog', x: 0, y: 5, w: 1, h: 1, minW: 1, maxW: 2, minH: 1, maxH: 2 },
     ]
+};
+
+// Responsive Wrapper for Map
+const ResponsiveMap = ({ children, ...props }) => {
+    const containerRef = useRef(null);
+    const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+
+    useEffect(() => {
+        if (!containerRef.current) return;
+
+        const resizeObserver = new ResizeObserver((entries) => {
+            for (let entry of entries) {
+                setDimensions({
+                    width: entry.contentRect.width,
+                    height: entry.contentRect.height
+                });
+            }
+        });
+
+        resizeObserver.observe(containerRef.current);
+        return () => resizeObserver.disconnect();
+    }, []);
+
+    return (
+        <div ref={containerRef} style={{ width: '100%', height: '100%' }}>
+            {dimensions.width > 0 && dimensions.height > 0 && (
+                <Map width={dimensions.width} height={dimensions.height} {...props}>
+                    {children}
+                </Map>
+            )}
+        </div>
+    );
 };
 
 // Default items data
@@ -105,19 +135,44 @@ export default function ProfilePage() {
 
     // Helper to migrate legacy single layout to layouts object
     const migrateLayout = (data) => {
+        let layouts = defaultLayouts;
+
         if (data.layouts && Object.keys(data.layouts).length > 0) {
-            return data.layouts;
-        }
-        if (data.layout && data.layout.length > 0) {
+            layouts = data.layouts;
+        } else if (data.layout && data.layout.length > 0) {
             // Lazy migration: Use old desktop layout for lg and md, generate sm
             console.log("Migrating legacy layout...");
-            return {
+            layouts = {
                 lg: data.layout,
                 md: data.layout,
                 sm: data.layout.map(item => ({ ...item, x: 0, w: 1 })) // Simplistic mobile conversion
             };
         }
-        return defaultLayouts;
+
+        // Enforce constraints on migrated/loaded layouts
+        const applyConstraints = (layout) => {
+            return layout.map(item => {
+                if (item.i === 'profile') {
+                    return { ...item, minW: 2, minH: 2 }; // Keep profile flexible but min sized
+                }
+                return {
+                    ...item,
+                    minW: 1,
+                    maxW: 2,
+                    minH: 1,
+                    maxH: 2,
+                    // Clamp existing values if they exceed max
+                    w: Math.min(item.w, 2),
+                    h: Math.min(item.h, 2)
+                };
+            });
+        };
+
+        return {
+            lg: applyConstraints(layouts.lg || []).filter(item => item.i !== 'profile'),
+            md: applyConstraints(layouts.md || []).filter(item => item.i !== 'profile'),
+            sm: applyConstraints(layouts.sm || []).filter(item => item.i !== 'profile').map(item => ({ ...item, w: 1, maxW: 1 })) // Force 1 col on mobile
+        };
     };
 
     // Fetch user data from Firestore
@@ -247,8 +302,6 @@ export default function ProfilePage() {
             setIsSaving(false);
         }
     };
-
-    // Add a new card block
     const addNewCard = () => {
         const newId = "card-" + Date.now();
 
@@ -268,9 +321,21 @@ export default function ProfilePage() {
             const maxY = findBottom(newLayouts[breakpoint]);
             // For sm/mobile force width to 1, otherwise 1
             const width = breakpoint === 'sm' ? 1 : 1;
+            const maxW = breakpoint === 'sm' ? 1 : 2;
+
             newLayouts[breakpoint] = [
                 ...newLayouts[breakpoint],
-                { i: newId, x: 0, y: maxY, w: width, h: 1 }
+                {
+                    i: newId,
+                    x: 0,
+                    y: maxY,
+                    w: width,
+                    h: 1,
+                    minW: 1,
+                    maxW: maxW,
+                    minH: 1,
+                    maxH: 2
+                }
             ];
         });
 
@@ -332,11 +397,7 @@ export default function ProfilePage() {
         setHasUnsavedChanges(true);
     };
 
-    // Cancel edit mode
-    const cancelEdit = () => {
-        setIsEditMode(false);
-        // TODO: Could restore original layout here
-    };
+
 
     // Helper to extract keys from layouts to render items
     const allKeys = new Set();
@@ -420,42 +481,8 @@ export default function ProfilePage() {
 
     // Render a card based on its item data
     const renderCard = (key) => {
-        if (key === 'profile') {
-            return (
-                <div key="profile" className={`h-full ${isEditMode ? "cursor-grab active:cursor-grabbing" : ""}`}>
-                    <div className="h-full flex flex-col justify-center px-4 md:px-0">
-                        <div className="w-[180px] h-[180px] rounded-full overflow-hidden mb-6 border border-gray-100 shadow-sm relative group flex-none self-start">
-                            {profileData?.photoURL ? (
-                                <img
-                                    src={profileData.photoURL?.replace('s96-c', 's400-c')}
-                                    alt="Avatar"
-                                    className="w-full h-full object-cover"
-                                    referrerPolicy="no-referrer"
-                                />
-                            ) : (
-                                <div className="w-full h-full bg-gray-200 flex items-center justify-center text-4xl">👤</div>
-                            )}
-                        </div>
-                        <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-black mb-3">
-                            {profileData?.displayName || username}
-                        </h1>
-                        <p className="text-gray-500 text-lg md:text-xl font-medium max-w-sm leading-relaxed">
-                            {isEditMode ? (
-                                <textarea
-                                    value={profileData?.bio || ""}
-                                    onChange={handleBioChange}
-                                    className="no-drag w-full bg-white border border-gray-200 rounded-xl p-2 focus:ring-2 focus:ring-black outline-none resize-none"
-                                    rows={3}
-                                    placeholder="Write a short bio..."
-                                />
-                            ) : (
-                                profileData?.bio
-                            )}
-                        </p>
-                    </div>
-                </div>
-            );
-        }
+        // Profile removed from grid rendering
+
 
         const item = items[key];
 
@@ -481,7 +508,89 @@ export default function ProfilePage() {
             );
         }
 
-        const isSocial = item.type === 'social' || !item.image;
+
+
+        if (item.platform === 'map') {
+            let center = [37.7749, -122.4194];
+            let zoom = item.zoom ? parseInt(item.zoom) : 3;
+
+            if (item.lat && item.lng) {
+                center = [parseFloat(item.lat), parseFloat(item.lng)];
+            }
+            else if (item.url) {
+                const regex = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
+                const match = item.url.match(regex);
+                if (match) {
+                    center = [parseFloat(match[1]), parseFloat(match[2])];
+                }
+            }
+
+            return (
+                <div key={key} className={`h-full relative group/card ${isEditMode ? "cursor-grab active:cursor-grabbing" : ""}`}>
+                    {isEditMode && (
+                        <div className="absolute inset-0 z-50 bg-black/5 opacity-0 group-hover/card:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none rounded-[32px]">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleEditCard(key); }}
+                                className="no-drag pointer-events-auto p-3 bg-white text-black rounded-full shadow-lg hover:scale-110 transition-transform"
+                                title="Edit"
+                            >
+                                <Edit2 className="w-5 h-5" />
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); handleDeleteCard(key); }}
+                                className="no-drag pointer-events-auto p-3 bg-white text-red-500 rounded-full shadow-lg hover:scale-110 transition-transform"
+                                title="Delete"
+                            >
+                                <Trash2 className="w-5 h-5" />
+                            </button>
+                        </div>
+                    )}
+
+                    <div className={isEditMode ? "pointer-events-none h-full" : "h-full"}>
+                        <div className="w-full h-full rounded-[32px] overflow-hidden relative isolate bg-gray-100">
+                            {/* Dynamic Map via Pigeon Maps */}
+                            <div className="absolute inset-0 w-full h-full grayscale-[20%] contrast-[1.1] brightness-[1.05]">
+                                <ResponsiveMap
+                                    defaultCenter={center}
+                                    center={center}
+                                    defaultZoom={zoom}
+                                    zoom={zoom}
+                                    mouseEvents={false}
+                                    touchEvents={false}
+                                    attribution={false}
+                                    metaWheelZoom={false}
+                                    twoFingerDrag={false}
+                                />
+                            </div>
+
+                            <div className="absolute inset-0 bg-blue-50/10 pointer-events-none"></div>
+
+                            {/* Center Pin with Pulse */}
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                {/* Pulse Effect */}
+                                <div className="w-4 h-4 bg-blue-500 rounded-full animate-map-pulse absolute"></div>
+                                {/* Pin Core */}
+                                <div className="w-4 h-4 bg-blue-600 rounded-full border-2 border-white shadow-lg relative z-10"></div>
+                            </div>
+
+                            {/* Location Label (Bottom Left) */}
+                            <div className="absolute bottom-4 left-4 right-4">
+                                <a
+                                    href={item.url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.title)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="bg-white/90 backdrop-blur-md px-4 py-2 rounded-xl shadow-sm border border-white/50 inline-flex items-center gap-2 max-w-full hover:bg-white transition-colors pointer-events-auto"
+                                    onClick={(e) => isEditMode && e.preventDefault()}
+                                >
+                                    <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 animate-pulse"></div>
+                                    <span className="text-sm font-semibold text-gray-800 truncate">{item.title || "Location"}</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
 
         return (
             <div key={key} className={`h-full relative group/card ${isEditMode ? "cursor-grab active:cursor-grabbing" : ""}`}>
@@ -549,12 +658,49 @@ export default function ProfilePage() {
                     )}
                 </div>
 
+                {/* Profile Header - Static */}
+                <div className="flex flex-col items-center justify-center mb-12 mt-8 text-center">
+                    <div className="w-[124px] h-[124px] rounded-full overflow-hidden mb-6 border-2 border-white shadow-lg relative group flex-none">
+                        {profileData?.photoURL ? (
+                            <img
+                                src={profileData.photoURL?.replace('s96-c', 's400-c')}
+                                alt="Avatar"
+                                className="w-full h-full object-cover"
+                                referrerPolicy="no-referrer"
+                            />
+                        ) : (
+                            <div className="w-full h-full bg-gray-200 flex items-center justify-center text-4xl">👤</div>
+                        )}
+                        {/* Edit overlay for photo could go here */}
+                    </div>
+
+                    <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-black mb-2">
+                        {profileData?.displayName || username}
+                    </h1>
+
+                    <div className="max-w-md w-full px-4">
+                        {isEditMode ? (
+                            <textarea
+                                value={profileData?.bio || ""}
+                                onChange={handleBioChange}
+                                className="w-full bg-white border border-gray-200 rounded-xl p-3 focus:ring-2 focus:ring-black outline-none resize-none text-center text-gray-600"
+                                rows={3}
+                                placeholder="Write a short bio..."
+                            />
+                        ) : (
+                            <p className="text-gray-500 text-lg font-medium leading-relaxed">
+                                {profileData?.bio}
+                            </p>
+                        )}
+                    </div>
+                </div>
+
                 <BentoGrid
                     layouts={layouts}
                     isEditable={isEditMode}
                     onLayoutChange={handleLayoutChange}
                 >
-                    {Array.from(allKeys).map(key => renderCard(key))}
+                    {Array.from(allKeys).filter(key => key !== 'profile').map(key => renderCard(key))}
                 </BentoGrid>
 
                 {/* Floating Action Buttons */}
@@ -633,6 +779,18 @@ export default function ProfilePage() {
                     confirmText="Delete"
                     isDestructive={true}
                 />
+
+                {/* Custom Styles for Map Pulse Animation */}
+                <style>{`
+                    @keyframes map-pulse {
+                        0% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+                        70% { transform: scale(3); opacity: 0; box-shadow: 0 0 0 20px rgba(59, 130, 246, 0); }
+                        100% { transform: scale(3); opacity: 0; box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+                    }
+                    .animate-map-pulse {
+                        animation: map-pulse 5s infinite;
+                    }
+                `}</style>
             </div>
         </div>
     );
